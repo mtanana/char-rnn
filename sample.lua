@@ -26,7 +26,6 @@ cmd:text('Options')
 cmd:argument('-model','model checkpoint to use for sampling')
 -- optional parameters
 cmd:option('-seed',123,'random number generator\'s seed')
-cmd:option('-formatwords',0,'Insert appropriate spaces in text')
 cmd:option('-sample',1,' 0 to use max at each timestep, 1 to sample at each timestep')
 cmd:option('-primetext',"",'used as a prompt to "seed" the state of the LSTM using a given sequence, before we sample.')
 cmd:option('-length',2000,'number of characters to sample')
@@ -156,7 +155,7 @@ for i=1, opt.length do
     for i=1,state_size do table.insert(current_state, lst[i]) end
     prediction = lst[#lst] -- last element holds the log probabilities
     local word = ivocab[prev_char[1]]
-    if(opt.formatwords==1) then
+    if(checkpoint.opt.wordlevel==1) then
       word=word.." "
     end
     io.write(word)
