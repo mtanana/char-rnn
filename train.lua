@@ -25,6 +25,7 @@ local CharSplitLMMinibatchLoader = require 'util.CharSplitLMMinibatchLoader'
 local WordSplitLMMinibatchLoader = require 'util.WordSplitLMMinibatchLoader'
 local model_utils = require 'util.model_utils'
 local LSTM = require 'model.LSTM'
+local LSTM2 = require 'model.LSTM2'
 local GRU = require 'model.GRU'
 local RNN = require 'model.RNN'
 
@@ -34,7 +35,7 @@ cmd:text('Train a character-level language model')
 cmd:text()
 cmd:text('Options')
 -- data
-cmd:option('-data_dir','data/tinyshakespeare','data directory. Should contain the file input.txt with input data')
+cmd:option('-data_dir','data/psychcorpus','data directory. Should contain the file input.txt with input data')
 
 -- model params
 cmd:option('-rnn_size', 128, 'size of LSTM internal state')
@@ -146,7 +147,7 @@ else
     print('creating an ' .. opt.model .. ' with ' .. opt.num_layers .. ' layers')
     protos = {}
     if opt.model == 'lstm' then
-        protos.rnn = LSTM.lstm(vocab_size, opt.rnn_size, opt.num_layers, opt.dropout)
+        protos.rnn = LSTM2.lstm(vocab_size, opt.rnn_size, opt.num_layers, opt.dropout)
     elseif opt.model == 'gru' then
         protos.rnn = GRU.gru(vocab_size, opt.rnn_size, opt.num_layers, opt.dropout)
     elseif opt.model == 'rnn' then
@@ -360,10 +361,10 @@ for i = 1, iterations do
         break -- halt
     end
     if loss0 == nil then loss0 = loss[1] end
-    if loss[1] > loss0 * 3 then
-        print('loss is exploding, aborting.')
-        break -- halt
-    end
+    --if loss[1] > loss0 * 3 then
+    --   print('loss is exploding, aborting.')
+    --    break -- halt
+    --end
 end
 
 
