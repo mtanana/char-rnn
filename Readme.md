@@ -4,7 +4,13 @@ This was originally from the char-rnn project.  It was such a nice implementatio
 
 Use the -usewords 1 option to train on a word model instead of a char model
 
+Note:  you should do your preprocessing before brining it into this program.  I space out all of my punctuation so that periods, quotes, commas, etc are just recognized as words in the vocab.  Soon, I'll try and add a way to control the vocab size in this program.
+
 Now it runs quite quickly thanks to the nn.LookupTable
+
+
+
+
 
 #Original Documentation from Karpathy
 
