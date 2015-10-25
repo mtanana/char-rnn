@@ -4,6 +4,7 @@ This was originally from the char-rnn project.  It was such a nice implementatio
 
 Use the -usewords 1 option to train on a word model instead of a char model
 
+Now it runs quite quickly thanks to the nn.LookupTable
 
 #Original Documentation from Karpathy
 
