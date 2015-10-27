@@ -1,5 +1,5 @@
 
---Modified from Andrew Karpathy and Wojciech Zaremba 
+--Modified by Mike Tanana from Andrew Karpathy and Wojciech Zaremba 
 --Changed to support word models
 
 local WordSplitLMMinibatchLoader = {}
@@ -150,6 +150,8 @@ function WordSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     local rawdata
     local tot_len = 0
     local filein = io.open(in_textfile, "r")
+    local unknownword = "<unk>"
+    local trimvalue =4
 
     -- create vocabulary if it doesn't exist yet
     print('creating vocabulary mapping...')
@@ -160,8 +162,10 @@ function WordSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     t=WordSplitLMMinibatchLoader.preprocess(t)
     local words = t:gmatch(matchstring )
     
+   
     for word in words do
        word = word:lower()
+       
           if wordcount[word]==nil then
               wordcount[word]=1
           else
@@ -170,26 +174,35 @@ function WordSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
          tot_len=tot_len+1
          
     end
-    
+
     filein:close()
+    
+    
+    
+     --local f = assert(io.open("vocabtest.txt", "w"))
+    
+    
+ 
     
     local vocab_mapping = {}
     local index=1
+    vocab_mapping[unknownword]=index;
+    index=index+1
     for key,value in pairs(wordcount) do 
-      vocab_mapping[key]=index;
-      index=index+1
-      count=count+1
-      -- print(key)
+      if(value>=trimvalue) then  --trim dictionary for rare words
+        vocab_mapping[key]=index;
+        index=index+1
+        count=count+1
+      end
     end
     
-   
+     -- f:close()
     
     --later on we can decide to trim this vocab if we'd like
     --print(wordcount)
     print("Count: "..count)
-      print("Length: "..tot_len)
-    --print("Test: "..vocab_mapping["Thou"])
-   
+    print("Length: "..tot_len)
+
     
      -- construct a tensor with all the data
     print('putting data into tensor...')
@@ -201,11 +214,13 @@ function WordSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     local loc=1
     for word in words do
        word = word:lower()
-       data[loc] = vocab_mapping[word]
+       local idx = vocab_mapping[word]
+       if idx == nil then idx = vocab_mapping[unknownword] end
+       data[loc] = idx
        if vocab_mapping[word]==0 then print("ZERO INDEX "..word) end 
        loc=loc+1
     end
-
+    
  
      -- save output preprocessed files
     print('saving ' .. out_vocabfile)
