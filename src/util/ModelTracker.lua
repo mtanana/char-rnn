@@ -1,6 +1,6 @@
 ModelTracker = {}
 
-
+--(from mtanana) this is my own custom model tracker  I'd be happy to open source it if someone wants it
 
 --table is the lua table that will become json and the funct is the function id
 function ModelTracker.sendJsonObj(table,funct)
