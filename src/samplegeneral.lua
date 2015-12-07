@@ -40,6 +40,7 @@ cmd:option('-verbose',1,'set to 0 to ONLY print the sampled text, no diagnostics
 cmd:text()
 
 
+--some of these are custom dialogue tags for my own stuff
 function translateWords(words)
 
   words=words:gsub("<c>","Client:\n");
@@ -53,7 +54,6 @@ end
 
 
 
-local testphrases = {"<c> yeah, i'm having a really bad day <eos> <t> i'm sorry to hear that . how can I help ? <eos> ","<t> how are you today <eos> ","<t> what have you been up to ? <eos>"}
 
 -- parse input params
 opt = cmd:parse(arg)
