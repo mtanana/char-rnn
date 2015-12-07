@@ -5,7 +5,7 @@ ModelTracker = {}
 --table is the lua table that will become json and the funct is the function id
 function ModelTracker.sendJsonObj(table,funct)
 
-    local endpoint = "http://tananas.trivergia.com:8111/modeltracker/tracking.jsp"
+    local endpoint = "http://example.com"
     -- load required modules
     local http = require("socket.http") --luasocket
     local ltn12 = require("ltn12")
