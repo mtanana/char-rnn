@@ -2,6 +2,19 @@
 # char/word-rnn
 This was originally from the char-rnn project.  It was such a nice implementation of LSTM that I forked it so that you could toggle between words or characters.  (I am agnostic as to which is preferable, so I would like to be able to test both)
 
+Use -wordlevel 1 option to train on a word model instead of a char model
+
+Note:  you should do your preprocessing before brining it into this program.  I space out all of my punctuation so that periods, quotes, commas, etc are just recognized as words in the vocab.  Soon, I'll try and add a way to control the vocab size in this program.
+
+Now it runs quite quickly thanks to the nn.LookupTable
+
+
+
+
+
+#Original Documentation from Karpathy
+
+
 
 
 # char-rnn

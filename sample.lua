@@ -154,8 +154,11 @@ for i=1, opt.length do
     current_state = {}
     for i=1,state_size do table.insert(current_state, lst[i]) end
     prediction = lst[#lst] -- last element holds the log probabilities
-
-    io.write(ivocab[prev_char[1]])
+    local word = ivocab[prev_char[1]]
+    if(checkpoint.opt.wordlevel==1) then
+      word=word.." "
+    end
+    io.write(word)
 end
 io.write('\n') io.flush()
 

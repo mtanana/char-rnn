@@ -1,4 +1,3 @@
-
 --[[
 
 This file trains a character-level multi-layer RNN on text data
@@ -18,12 +17,15 @@ require 'nn'
 require 'nngraph'
 require 'optim'
 require 'lfs'
+require 'util.ModelTracker'
 
 require 'util.OneHot'
 require 'util.misc'
 local CharSplitLMMinibatchLoader = require 'util.CharSplitLMMinibatchLoader'
+local WordSplitLMMinibatchLoader = require 'util.WordSplitLMMinibatchLoader'
 local model_utils = require 'util.model_utils'
 local LSTM = require 'model.LSTM'
+local LSTM2 = require 'model.LSTM2'
 local GRU = require 'model.GRU'
 local RNN = require 'model.RNN'
 
@@ -33,11 +35,14 @@ cmd:text('Train a character-level language model')
 cmd:text()
 cmd:text('Options')
 -- data
-cmd:option('-data_dir','data/tinyshakespeare','data directory. Should contain the file input.txt with input data')
+cmd:option('-data_dir','data/psychcorpus','data directory. Should contain the file input.txt with input data')
+
 -- model params
 cmd:option('-rnn_size', 128, 'size of LSTM internal state')
 cmd:option('-num_layers', 2, 'number of layers in the LSTM')
 cmd:option('-model', 'lstm', 'lstm,gru or rnn')
+cmd:option('-wordlevel', 0, '1 for word level 0 for char')
+cmd:option('-vocabsize', 20000, 'Limit the word level vocab to this')
 -- optimization
 cmd:option('-learning_rate',2e-3,'learning rate')
 cmd:option('-learning_rate_decay',0.97,'learning rate decay')
@@ -46,7 +51,7 @@ cmd:option('-decay_rate',0.95,'decay rate for rmsprop')
 cmd:option('-dropout',0,'dropout for regularization, used after each RNN hidden layer. 0 = no dropout')
 cmd:option('-seq_length',50,'number of timesteps to unroll for')
 cmd:option('-batch_size',50,'number of sequences to train on in parallel')
-cmd:option('-max_epochs',50,'number of full passes through the training data')
+cmd:option('-max_epochs',8,'number of full passes through the training data')
 cmd:option('-grad_clip',5,'clip gradients at this value')
 cmd:option('-train_frac',0.95,'fraction of data that goes into train set')
 cmd:option('-val_frac',0.05,'fraction of data that goes into validation set')
@@ -54,6 +59,8 @@ cmd:option('-val_frac',0.05,'fraction of data that goes into validation set')
 cmd:option('-init_from', '', 'initialize network parameters from checkpoint at this path')
 -- bookkeeping
 cmd:option('-seed',123,'torch manual random number generator seed')
+cmd:option('-track',1,'Use ModelTracker')
+cmd:option('-supermodelid',30443057,'Modeltracking- Supermodel ID')
 cmd:option('-print_every',1,'how many steps/minibatches between printing out the loss')
 cmd:option('-eval_val_every',1000,'every how many iterations should we evaluate on validation data?')
 cmd:option('-checkpoint_dir', 'cv', 'output directory where checkpoints get written')
@@ -69,6 +76,19 @@ torch.manualSeed(opt.seed)
 -- train / val / test split for data, in fractions
 local test_frac = math.max(0, 1 - (opt.train_frac + opt.val_frac))
 local split_sizes = {opt.train_frac, opt.val_frac, test_frac} 
+
+--for modeltracking online
+local crossid=-99
+if(opt.track==1) then
+    local desc = ""
+    for k, v in pairs( opt ) do desc = desc..k..": "..v.." " end
+    
+    local sm=ModelTracker.createSubmodel({["name"]="LSTM lr:"..opt.learning_rate.." ",["description"]=desc,["supermodelid"]=opt.supermodelid})
+    local cross= ModelTracker.createCross({["name"]="Main",["description"]="Main Cross",["submodelid"]=sm.submodelid})
+    crossid=cross.crossid
+end
+
+
 
 -- initialize cunn/cutorch for training on the GPU and fall back to CPU gracefully
 if opt.gpuid >= 0 and opt.opencl == 0 then
@@ -107,7 +127,13 @@ if opt.gpuid >= 0 and opt.opencl == 1 then
 end
 
 -- create the data loader class
-local loader = CharSplitLMMinibatchLoader.create(opt.data_dir, opt.batch_size, opt.seq_length, split_sizes)
+local loader
+if opt.wordlevel==1 then 
+  loader = WordSplitLMMinibatchLoader.create(opt.data_dir, opt.batch_size, opt.seq_length, split_sizes,opt.vocabsize)
+else 
+  loader = CharSplitLMMinibatchLoader.create(opt.data_dir, opt.batch_size, opt.seq_length, split_sizes)
+end 
+
 local vocab_size = loader.vocab_size  -- the number of distinct characters
 local vocab = loader.vocab_mapping
 print('vocab size: ' .. vocab_size)
@@ -137,7 +163,7 @@ else
     print('creating an ' .. opt.model .. ' with ' .. opt.num_layers .. ' layers')
     protos = {}
     if opt.model == 'lstm' then
-        protos.rnn = LSTM.lstm(vocab_size, opt.rnn_size, opt.num_layers, opt.dropout)
+        protos.rnn = LSTM2.lstm(vocab_size, opt.rnn_size, opt.num_layers, opt.dropout)
     elseif opt.model == 'gru' then
         protos.rnn = GRU.gru(vocab_size, opt.rnn_size, opt.num_layers, opt.dropout)
     elseif opt.model == 'rnn' then
@@ -256,6 +282,7 @@ function feval(x)
     ------------------- forward pass -------------------
     local rnn_state = {[0] = init_state_global}
     local predictions = {}           -- softmax outputs
+    
     local loss = 0
     for t=1,opt.seq_length do
         clones.rnn[t]:training() -- make sure we are in correct mode (this is cheap, sets flag)
@@ -301,14 +328,14 @@ local iterations_per_epoch = loader.ntrain
 local loss0 = nil
 for i = 1, iterations do
     local epoch = i / loader.ntrain
-
+    print(i)
     local timer = torch.Timer()
-    local _, loss = optim.rmsprop(feval, params, optim_state)
+    local _, loss = optim.adagrad(feval, params, optim_state)
     local time = timer:time().real
 
     local train_loss = loss[1] -- the loss is inside a list, pop it
     train_losses[i] = train_loss
-
+    
     -- exponential learning rate decay
     if i % loader.ntrain == 0 and opt.learning_rate_decay < 1 then
         if epoch >= opt.learning_rate_decay_after then
@@ -317,7 +344,12 @@ for i = 1, iterations do
             print('decayed learning rate by a factor ' .. decay_factor .. ' to ' .. optim_state.learningRate)
         end
     end
-
+    
+    --optional model tracking
+    if(i%200==0 and opt.track==1) then
+          pcall(ModelTracker.sendStatistic({["category"]="Next",["name"]="Loss",["group"]="train",["n"]=i,["crossid"]=crossid,["value"]=train_loss}))
+    end
+    
     -- every now and then or on last iteration
     if i % opt.eval_val_every == 0 or i == iterations then
         -- evaluate loss on validation data
@@ -335,7 +367,9 @@ for i = 1, iterations do
         checkpoint.i = i
         checkpoint.epoch = epoch
         checkpoint.vocab = loader.vocab_mapping
-        torch.save(savefile, checkpoint)
+        --torch.save(savefile, checkpoint)
+        
+        pcall(ModelTracker.sendStatistic({["category"]="Next",["name"]="Loss",["group"]="test",["n"]=i,["crossid"]=crossid,["value"]=val_loss}))
     end
 
     if i % opt.print_every == 0 then
@@ -350,10 +384,10 @@ for i = 1, iterations do
         break -- halt
     end
     if loss0 == nil then loss0 = loss[1] end
-    if loss[1] > loss0 * 3 then
-        print('loss is exploding, aborting.')
-        break -- halt
-    end
+    --if loss[1] > loss0 * 3 then
+    --   print('loss is exploding, aborting.')
+    --    break -- halt
+    --end
 end
 
 
